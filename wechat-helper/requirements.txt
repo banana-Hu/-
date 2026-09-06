@@ -1,0 +1,15 @@
+# wechat-helper 依赖
+# 核心运行时
+
+httpx>=0.27.0          # 异步 HTTP 客户端（含 SSE 支持）
+aiohttp>=3.9.0          # 本地 Bridge HTTP 服务
+PyYAML>=6.0             # YAML 配置解析
+
+# Windows 桌面操控（仅 Windows 平台需要）
+pyautogui>=0.9.54       # 鼠标键盘模拟
+pywin32>=306; sys_platform == 'win32'  # Win32 API
+pyperclip>=1.8.2        # 剪贴板操作（中文输入需要）
+keyboard>=0.13.5        # 全局快捷键监听
+
+# 工具
+python-dateutil>=2.8.2

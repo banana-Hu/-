@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# 数据
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# 截图
+screenshots/
+logs/screenshots/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 凭据
+config/config.yaml
+!config/config.example.yaml
+
+# 临时
+*.tmp
+*.bak

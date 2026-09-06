@@ -1,0 +1,37 @@
+# 示例配置 - 复制为 config/config.yaml 后修改
+
+weflow:
+  base_url: http://127.0.0.1:5030
+  api_path: /api/v1
+  sse_path: /push/messages
+  reconnect_delay: 5
+
+bridge:
+  host: 127.0.0.1
+  port: 5031
+  auth_token: change-me-to-a-secure-token
+  events_db: ./logs/events.db
+
+watcher:
+  # 要监控的会话列表（wxid 或 @chatroom），留空监控全部
+  watch_sessions: []
+  max_queue_size: 1000
+  heartbeat_timeout: 30
+  history_fallback_count: 20
+
+operator:
+  send_hotkey: ctrl+shift+s
+  cancel_hotkey: esc
+  delay_min: 0.5
+  delay_max: 1.5
+  screenshot_dir: ./logs/screenshots
+  wechat_window_titles:
+    - 微信
+    - WeChat
+  require_confirmation: true
+
+logging:
+  level: INFO
+  log_dir: ./logs
+  max_bytes: 10485760
+  backup_count: 5
