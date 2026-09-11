@@ -1,0 +1,10 @@
+# 本地生成物与密钥，不入库
+cache/
+output/
+build_dist/
+build_work/
+upload_state.json
+notion.local.json
+.env.local
+__pycache__/
+*.pyc
