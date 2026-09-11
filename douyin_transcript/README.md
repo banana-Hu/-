@@ -38,8 +38,26 @@ python tools/douyin_transcript/douyin_transcript.py "<链接>" --srt --with-meta
 | `--no-cache` | 忽略已缓存的媒体文件 |
 | `--no-open` | 完成后不自动打开文字稿 |
 | `--notion` | 把文字稿推送为 Notion 笔记页面（见下节配置） |
+| `--classify` | 转写完成后自动按内容领域分类归档（见下节「内容领域自动分类」） |
 | `--notion-token` / `--notion-parent` | 临时指定 Notion 集成密钥与父页面，覆盖配置 |
 | `--env-proxy` | 使用系统代理环境变量（默认强制直连，避免本机失效代理干扰） |
+
+## 内容领域自动分类（classify_transcript.py）
+
+接入中转站 MiniMax（复用 `.env.local` 的 `MINIMAX_SEARCH_API_KEY` / `MINIMAX_SEARCH_API_BASE_URL`，模型默认 `MiniMax-M3`），用**固定提示词**（`classify_config.json`，版本化、可审计）把文字稿判定到唯一的内容领域，然后自动归档：
+
+```powershell
+# 对 output 根目录下所有未归档文稿分类（dry-run 只看结果不动文件）
+python tools/douyin_transcript/classify_transcript.py --dry-run
+python tools/douyin_transcript/classify_transcript.py
+
+# 新视频一步到位：转写 + 分类归档
+python tools/douyin_transcript/douyin_transcript.py "<链接>" --classify
+```
+
+- 归档结果：文稿与同名 SRT 移入 `output\<类别>\` 子目录，分类记录追加到 `output\classifications.jsonl`
+- 固定类别（`classify_config.json`）：AI与技术 / 财经商业 / 自媒体与个人成长 / 教育与职场 / 社会时事 / 生活娱乐 / 其他；修改类别或提示词只需改该配置文件
+- token 消耗：每篇约取前 2500 字送检（约 1700 token），只在分类时产生，转写本身仍为零成本
 
 ## Notion 笔记同步
 

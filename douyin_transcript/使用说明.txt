@@ -30,7 +30,16 @@
   --with-meta    文字稿开头附上视频标题、作者、链接
   --model base   换用更小更快的模型（更省时但错字略多）
   --no-open      完成后不自动打开文件
+  --classify     转写后自动按内容领域分类归档（见下）
   --notion       把文字稿存进自己的 Notion 笔记（需先配置，见下）
+
+【自动分类归档（可选，需已配置 .env.local 的 MiniMax 密钥）】
+运行时加 --classify，视频转写完成后会调用 MiniMax 判断内容领域
+（AI与技术 / 财经商业 / 自媒体与个人成长 / 教育与职场 / 社会时事 /
+生活娱乐 / 其他），并把文稿移到 output\<类别>\ 子文件夹里。
+也可以对已生成的文稿批量补分类：
+  python classify_transcript.py            （全部）
+  python classify_transcript.py --dry-run  （只看结果不移动）
 
 【存进 Notion 笔记（可选）】
 1. 打开 https://www.notion.so/my-integrations 新建一个集成，复制 Secret。

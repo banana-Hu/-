@@ -508,6 +508,13 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
                 paragraphs=merge_paragraphs(segments).split("\n\n"),
             )
             print(f"[Notion] 已写入笔记：{page_url}", file=sys.stderr)
+        if args.classify:
+            try:
+                import classify_transcript  # 与本文件同目录
+                classify_transcript.classify_file(
+                    Path(txt_path), output_dir=Path(args.output).resolve())
+            except Exception as exc:  # noqa: BLE001 - 分类失败不影响文稿本身
+                print(f"[提示] 自动分类失败（文稿已正常保存）：{exc}", file=sys.stderr)
 
     # 第一步：尝试平台自动字幕（免转写，最快最准）
     captions = find_captions(detail)
@@ -595,6 +602,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-open", action="store_true", help="完成后不自动用记事本打开文字稿")
     parser.add_argument("--notion", action="store_true",
                         help="把文字稿推送到 Notion（需先配置，见 README「Notion 笔记同步」）")
+    parser.add_argument("--classify", action="store_true",
+                        help="转写完成后调用 MiniMax 自动按内容领域分类归档（见 classify_config.json）")
     parser.add_argument("--notion-token", default=None, help="Notion 集成 Secret（也可用环境变量/配置文件）")
     parser.add_argument("--notion-parent", default=None, help="Notion 父页面链接或 ID（也可用环境变量/配置文件）")
     parser.add_argument("--env-proxy", action="store_true", help="使用系统代理环境变量（默认强制直连）")
