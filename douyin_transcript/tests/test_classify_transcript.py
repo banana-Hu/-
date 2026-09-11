@@ -13,7 +13,7 @@ from typing import Any
 # 兼容两种布局：本仓库独立文件夹（douyin_transcript/tests/）与工作区（tests/ + tools/douyin_transcript/）
 _CANDIDATES = [
     Path(__file__).resolve().parents[1] / "classify_transcript.py",
-    Path(__file__).resolve().parents[2] / "tools" / "douyin_transcript" / "classify_transcript.py",
+    Path(__file__).resolve().parents[1] / "tools" / "douyin_transcript" / "classify_transcript.py",
 ]
 MODULE_PATH = next((p for p in _CANDIDATES if p.is_file()), _CANDIDATES[0])
 SPEC = importlib.util.spec_from_file_location("classify_transcript", MODULE_PATH)
