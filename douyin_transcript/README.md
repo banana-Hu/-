@@ -39,6 +39,7 @@ python tools/douyin_transcript/douyin_transcript.py "<链接>" --srt --with-meta
 | `--no-open` | 完成后不自动打开文字稿 |
 | `--notion` | 把文字稿推送为 Notion 笔记页面（见下节配置） |
 | `--classify` | 转写完成后自动按内容领域分类归档（见下节「内容领域自动分类」） |
+| `--segment` | 转写完成后调用 MiniMax 语义分段（防改写校验，见下节「语义分段」） |
 | `--notion-token` / `--notion-parent` | 临时指定 Notion 集成密钥与父页面，覆盖配置 |
 | `--env-proxy` | 使用系统代理环境变量（默认强制直连，避免本机失效代理干扰） |
 
@@ -58,6 +59,24 @@ python tools/douyin_transcript/douyin_transcript.py "<链接>" --classify
 - 归档结果：文稿与同名 SRT 移入 `output\<类别>\` 子目录，分类记录追加到 `output\classifications.jsonl`
 - 固定类别（`classify_config.json`）：AI与技术 / 财经商业 / 自媒体与个人成长 / 教育与职场 / 社会时事 / 生活娱乐 / 其他；修改类别或提示词只需改该配置文件
 - token 消耗：每篇约取前 2500 字送检（约 1700 token），只在分类时产生，转写本身仍为零成本
+
+## 语义分段（segment_transcript.py）
+
+Whisper 输出缺少自然分段，本工具用中转站 MiniMax 按话题重新分段并可加 `## ` 小标题，**带防改写完整性校验**：模型输出剥掉标题与空白后必须与原文逐字相等，否则自动重试（最多 `maxAttempts` 次），全部失败则保留原文件——原文一字不动是有程序保证的。
+
+```powershell
+# 新视频一步到位：转写 + 分段（可与 --classify、--notion 组合）
+python tools/douyin_transcript/douyin_transcript.py "<链接>" --segment
+
+# 存量文稿批量补分段（递归 output 下全部类别文件夹，已分段的自动跳过）
+python tools/douyin_transcript/segment_transcript.py
+python tools/douyin_transcript/segment_transcript.py --dry-run   # 只看结果不写回
+python tools/douyin_transcript/segment_transcript.py --file "<单篇路径>"
+```
+
+- 固定提示词在 `segment_config.json`（版本化）；处理记录在 `output/segment_state.json`
+- 模型偶尔会“顺手改错别字”被校验拦截，重试后基本都能通过；重试与校验对用户透明
+- token 消耗：每篇约 2 倍文字稿长度（长稿按 3000 字分块），几分钱以内
 
 ## Notion 笔记同步
 

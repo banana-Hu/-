@@ -30,8 +30,17 @@
   --with-meta    文字稿开头附上视频标题、作者、链接
   --model base   换用更小更快的模型（更省时但错字略多）
   --no-open      完成后不自动打开文件
+  --segment      转写后调用 AI 按话题分段、加小标题（原文不改一个字）
   --classify     转写后自动按内容领域分类归档（见下）
   --notion       把文字稿存进自己的 Notion 笔记（需先配置，见下）
+
+【自动分段（可选，需已配置 .env.local 的 MiniMax 密钥）】
+运行时加 --segment，转写完成后 AI 会把整篇文字稿按话题重新分段，
+并在话题切换处加上 ## 小标题。程序会逐字校验 AI 的输出与原文一致，
+不一致就自动重试，重试到底也不通过就保留原稿——原文不会被改动。
+已生成的旧文稿也能补分段：
+  python segment_transcript.py            （全部，已处理的自动跳过）
+  python segment_transcript.py --dry-run  （只看结果不写回）
 
 【自动分类归档（可选，需已配置 .env.local 的 MiniMax 密钥）】
 运行时加 --classify，视频转写完成后会调用 MiniMax 判断内容领域

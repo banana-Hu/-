@@ -502,10 +502,21 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
 
     def finish(segments):
         _write_outputs(txt_path, args, segments, title, author, video_id, url_or_text)
+        if args.segment:
+            try:
+                import segment_transcript  # 与本文件同目录
+                segment_transcript.segment_file_auto(
+                    Path(txt_path), output_dir=Path(args.output).resolve())
+            except Exception as exc:  # noqa: BLE001 - 分段失败不影响文稿本身
+                print(f"[提示] 模型分段失败（文稿已正常保存）：{exc}", file=sys.stderr)
         if args.notion:
+            final_text = txt_path.read_text(encoding="utf-8")
+            if args.with_meta and final_text.startswith("# "):
+                final_text = final_text.split("\n\n", 1)[-1]
+            paragraphs = [p.strip() for p in final_text.split("\n\n") if p.strip()]
             page_url = push_to_notion(
                 session, args, title=title, author=author, video_id=video_id,
-                paragraphs=merge_paragraphs(segments).split("\n\n"),
+                paragraphs=paragraphs,
             )
             print(f"[Notion] 已写入笔记：{page_url}", file=sys.stderr)
         if args.classify:
@@ -604,6 +615,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="把文字稿推送到 Notion（需先配置，见 README「Notion 笔记同步」）")
     parser.add_argument("--classify", action="store_true",
                         help="转写完成后调用 MiniMax 自动按内容领域分类归档（见 classify_config.json）")
+    parser.add_argument("--segment", action="store_true",
+                        help="转写完成后调用 MiniMax 做语义分段（含防改写校验，见 segment_config.json）")
     parser.add_argument("--notion-token", default=None, help="Notion 集成 Secret（也可用环境变量/配置文件）")
     parser.add_argument("--notion-parent", default=None, help="Notion 父页面链接或 ID（也可用环境变量/配置文件）")
     parser.add_argument("--env-proxy", action="store_true", help="使用系统代理环境变量（默认强制直连）")
