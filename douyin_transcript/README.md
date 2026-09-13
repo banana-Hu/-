@@ -58,6 +58,7 @@ python tools/douyin_transcript/douyin_transcript.py "<链接>" --classify
 
 - 归档结果：文稿与同名 SRT 移入 `output\<类别>\` 子目录，分类记录追加到 `output\classifications.jsonl`
 - 固定类别（`classify_config.json`）：AI与技术 / 财经商业 / 自媒体与个人成长 / 教育与职场 / 社会时事 / 生活娱乐 / 其他；修改类别或提示词只需改该配置文件
+- 实测（2026-09-13）：该密钥的套餐仅开通 MiniMax-M3 一个模型（其余模型名一律 403 `not allowed in your plan`），且同名返回——响应 `model` 字段与请求一致，配置无需调整
 - token 消耗：每篇约取前 2500 字送检（约 1700 token），只在分类时产生，转写本身仍为零成本
 
 ## 语义分段（segment_transcript.py）
