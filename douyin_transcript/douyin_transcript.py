@@ -560,7 +560,8 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
             try:
                 import segment_transcript  # 与本文件同目录
                 segment_transcript.segment_file_auto(
-                    Path(txt_path), output_dir=Path(args.output).resolve())
+                    Path(txt_path), output_dir=Path(args.output).resolve(),
+                    segments=segments)
             except Exception as exc:  # noqa: BLE001 - 分段失败不影响文稿本身
                 print(f"[提示] 模型分段失败（文稿已正常保存）：{exc}", file=sys.stderr)
         if args.notion:
@@ -626,6 +627,12 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
     if not segments:
         raise RuntimeError("转写完成但没有识别到任何语音内容（可能是纯音乐/无口播）")
     finish(segments)
+    if not args.keep_media:
+        try:
+            media_path.unlink(missing_ok=True)
+            print(f"[清理] 已删除本地媒体缓存：{media_path.name}", file=sys.stderr)
+        except OSError as exc:
+            print(f"[提示] 媒体缓存删除失败（不影响结果）：{exc}", file=sys.stderr)
     return txt_path
 
 
@@ -660,6 +667,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT_DIR), help="输出目录（默认 exe/工具目录下的 output）")
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR), help="媒体缓存目录")
     parser.add_argument("--no-cache", action="store_true", help="忽略并覆盖已缓存的媒体文件")
+    parser.add_argument("--keep-media", action="store_true", help="转写成功后保留本地媒体缓存（默认用完即删）")
     parser.add_argument("--model", default="small", help="faster-whisper 模型：tiny/base/small/medium/large-v3，或本地模型目录（默认 small）")
     parser.add_argument("--device", default="cpu", help="cpu 或 cuda（默认 cpu）")
     parser.add_argument("--compute-type", default="int8", help="int8/int8_float16/float16/float32（默认 int8）")

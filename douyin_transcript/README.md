@@ -22,7 +22,7 @@ python tools/douyin_transcript/douyin_transcript.py "https://v.douyin.com/xxxxxx
 python tools/douyin_transcript/douyin_transcript.py "<链接>" --srt --with-meta
 ```
 
-文字稿 TXT 默认输出到 `tools/douyin_transcript/output/`，媒体文件缓存在 `tools/douyin_transcript/cache/`（同一视频重复提取时直接复用；`--no-cache` 可强制重新下载）。
+文字稿 TXT 默认输出到 `tools/douyin_transcript/output/`。媒体文件下载到 `tools/douyin_transcript/cache/` 临时使用，**转写成功后自动删除**（`--keep-media` 可保留，重复提取同一视频需重新下载）。
 
 ## 选项
 
@@ -75,6 +75,7 @@ python tools/douyin_transcript/segment_transcript.py --dry-run   # 只看结果�
 python tools/douyin_transcript/segment_transcript.py --file "<单篇路径>"
 ```
 
+- 每个段落行首自动标注 `[MM:SS-MM:SS]` 时间区间（与 Whisper 时间戳逐字对齐回映射），小标题下方第一段即该话题的起点时间，方便回视频定位
 - 固定提示词在 `segment_config.json`（版本化）；处理记录在 `output/segment_state.json`
 - 模型偶尔会“顺手改错别字”被校验拦截，重试后基本都能通过；重试与校验对用户透明
 - token 消耗：每篇约 2 倍文字稿长度（长稿按 3000 字分块），几分钱以内

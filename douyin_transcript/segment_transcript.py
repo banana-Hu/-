@@ -99,6 +99,72 @@ def split_header(text: str) -> tuple[list[str], str]:
     return [], text
 
 
+def parse_srt_timings(srt_path: Path) -> list[tuple[float, float, str]]:
+    """从同名 SRT 恢复 (开始, 结束, 文本) 列表；文件不存在返回空表。"""
+    if not srt_path.is_file():
+        return []
+    from douyin_transcript import parse_vtt  # 与主工具同目录，避免循环导入放函数内
+    return parse_vtt(srt_path.read_text(encoding="utf-8-sig"))
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"\s+", "", text)
+
+
+def map_paragraph_times(paragraphs: list[str], segments: list[tuple[float, float, str]]) -> list[tuple[float, float] | None]:
+    """把模型分段映射回 Whisper 片段的时间区间。
+
+    前提：分段输出通过完整性校验，即所有段落去空白后与原文逐字一致，
+    因此可以按字符顺序消费片段。无法对齐的段落返回 None（不标时间）。
+    """
+    timings: list[tuple[float, float] | None] = []
+    index = 0
+    for paragraph in paragraphs:
+        target = _compact(paragraph)
+        if not target:
+            timings.append(None)
+            continue
+        buffer = ""
+        start = end = None
+        while index < len(segments):
+            seg_start, seg_end, seg_text = segments[index]
+            if start is None:
+                start = seg_start
+            buffer += _compact(seg_text)
+            end = seg_end
+            index += 1
+            if len(buffer) >= len(target):
+                break
+        if buffer == target and start is not None:
+            timings.append((start, end))
+        else:
+            timings.append(None)
+    return timings
+
+
+def _format_clock(seconds: float) -> str:
+    total = int(round(seconds))
+    minutes, sec = divmod(total, 60)
+    return f"{minutes:02d}:{sec:02d}"
+
+
+def annotate_paragraph_times(segmented: str, timings: list[tuple[float, float] | None]) -> str:
+    """给每个非标题段落行首加 [MM:SS-MM:SS] 时间标记。"""
+    out_lines: list[str] = []
+    index = 0
+    for line in segmented.splitlines():
+        if line.strip().startswith("##") or not line.strip():
+            out_lines.append(line)
+            continue
+        if index < len(timings) and timings[index]:
+            start, end = timings[index]
+            out_lines.append(f"[{_format_clock(start)}-{_format_clock(end)}] {line.rstrip()}")
+        else:
+            out_lines.append(line)
+        index += 1
+    return "\n".join(out_lines)
+
+
 def split_sentences(body: str) -> list[str]:
     """按中文句末标点断句，保留标点；空白段丢弃。"""
     sentences = [s.strip() for s in _SENTENCE_SPLIT.split(body) if s.strip()]
@@ -217,12 +283,22 @@ def segment_body(body: str, session, *, api_key: str, base_url: str,
 
 def segment_file(txt_path: Path, session, *, api_key: str, base_url: str,
                  config: dict, model: str, dry_run: bool = False,
-                 output_dir: Path | None = None) -> str:
-    """处理单篇：读文件 → 分段 → （非 dry-run 时）写回原文件。返回分段后文本。"""
+                 output_dir: Path | None = None,
+                 segments: list[tuple[float, float, str]] | None = None) -> str:
+    """处理单篇：读文件 → 分段 → 时间标注 →（非 dry-run 时）写回原文件。
+
+    时间标注来源优先用传入的 Whisper 片段；没有时尝试从同名 SRT 恢复。
+    返回标注后的完整文本。
+    """
     text = txt_path.read_text(encoding="utf-8-sig")
     header_lines, body = split_header(text)
     segmented = segment_body(body, session, api_key=api_key, base_url=base_url,
                              config=config, model=model)
+    timings_source = segments if segments else parse_srt_timings(txt_path.with_suffix(".srt"))
+    paragraphs = [line for line in segmented.splitlines()
+                  if line.strip() and not line.strip().startswith("##")]
+    timings = map_paragraph_times(paragraphs, timings_source)
+    segmented = annotate_paragraph_times(segmented, timings)
     result = ("\n".join(header_lines) + "\n\n" + segmented) if header_lines else segmented
     if not dry_run:
         txt_path.write_text(result + "\n", encoding="utf-8")
@@ -254,6 +330,7 @@ def segment_file_auto(
     config_file: Path | None = None,
     dry_run: bool = False,
     model_override: str | None = None,
+    segments: list[tuple[float, float, str]] | None = None,
 ) -> str:
     """自足的单篇分段入口（供主工具 --segment 和外部程序调用）：自建会话与配置。"""
     config = load_config(config_file or DEFAULT_CONFIG_FILE)
@@ -266,7 +343,7 @@ def segment_file_auto(
     return segment_file(
         txt_path, session, api_key=api_key, base_url=base_url,
         config=config, model=model, dry_run=dry_run,
-        output_dir=output_dir)
+        output_dir=output_dir, segments=segments)
 
 
 def iter_pending_files(output_dir: Path, state_file: Path) -> list[Path]:

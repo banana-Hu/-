@@ -189,5 +189,43 @@ class SegmentFileTest(unittest.TestCase):
         self.assertEqual([p.name for p in pending], ["新文稿.txt"])
 
 
+class TimeAnnotationTest(unittest.TestCase):
+    SEGMENTS = [
+        (0.0, 10.0, "第一句话。第二句话。"),
+        (10.0, 20.0, "第三句话。"),
+        (20.0, 30.0, "第四句话。第五句话。第六句话。"),
+    ]
+
+    def test_map_paragraph_times_multi_segment(self):
+        # 第一段跨两个 Whisper 片段，第二段只有一个
+        paragraphs = ["第一句话。第二句话。第三句话。", "第四句话。第五句话。第六句话。"]
+        timings = segment_transcript.map_paragraph_times(paragraphs, self.SEGMENTS)
+        self.assertEqual(timings[0], (0.0, 20.0))
+        self.assertEqual(timings[1], (20.0, 30.0))
+
+    def test_map_paragraph_times_mismatch_gives_none(self):
+        timings = segment_transcript.map_paragraph_times(
+            ["完全对不上的内容。"], self.SEGMENTS)
+        self.assertEqual(timings, [None])
+
+    def test_annotate_inserts_brackets_and_keeps_headings(self):
+        segmented = "## 小标题\n第一句话。第二句话。第三句话。\n\n第四句话。第五句话。第六句话。"
+        paragraphs = ["第一句话。第二句话。第三句话。", "第四句话。第五句话。第六句话。"]
+        timings = segment_transcript.map_paragraph_times(paragraphs, self.SEGMENTS)
+        out = segment_transcript.annotate_paragraph_times(segmented, timings)
+        self.assertIn("## 小标题", out)
+        self.assertIn("[00:00-00:20] 第一句话。", out)
+        self.assertIn("[00:20-00:30] 第四句话。", out)
+
+    def test_annotate_without_timings_keeps_plain(self):
+        out = segment_transcript.annotate_paragraph_times(
+            "第一句话。", [None])
+        self.assertEqual(out, "第一句话。")
+
+    def test_parse_srt_timings_missing_file(self):
+        self.assertEqual(
+            segment_transcript.parse_srt_timings(Path("不存在.srt")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
