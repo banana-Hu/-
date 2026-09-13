@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Any
 
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "upload_to_notion.py"
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "tools"
+    / "douyin_transcript"
+    / "upload_to_notion.py"
+)
 
 SPEC = importlib.util.spec_from_file_location("upload_to_notion", MODULE_PATH)
 if SPEC is None or SPEC.loader is None:
