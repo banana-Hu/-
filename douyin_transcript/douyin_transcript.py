@@ -484,22 +484,34 @@ def push_to_notion(session, args, title, author, video_id, paragraphs, stats=Non
 # ---------------------------------------------------------------- 互动数据
 
 def extract_stats(detail: dict) -> dict:
-    """从 aweme_detail 提取互动数据；字段缺失时按 0 处理。"""
+    """从 aweme_detail 提取互动数据与时长；字段缺失时按 0 处理。"""
     raw = detail.get("statistics") if isinstance(detail, dict) else None
     raw = raw if isinstance(raw, dict) else {}
     def count(key: str) -> int:
         value = raw.get(key, 0)
         return value if isinstance(value, (int, float)) else 0
+    video = detail.get("video") if isinstance(detail, dict) else None
+    video = video if isinstance(video, dict) else {}
+    duration_ms = video.get("duration") or detail.get("duration") or 0
+    duration = int(round(duration_ms / 1000)) if isinstance(duration_ms, (int, float)) else 0
     return {
         "digg": int(count("digg_count")),
         "comment": int(count("comment_count")),
         "collect": int(count("collect_count")),
         "share": int(count("share_count")),
+        "duration": duration,
     }
 
 
+def format_duration(seconds: int) -> str:
+    minutes, sec = divmod(max(0, int(seconds)), 60)
+    return f"{minutes}分{sec:02d}秒" if minutes else f"{sec}秒"
+
+
 def stats_line(stats: dict) -> str:
-    return f"- 互动：点赞 {stats['digg']} · 评论 {stats['comment']} · 收藏 {stats['collect']} · 分享 {stats['share']}"
+    return (f"- 互动：点赞 {stats['digg']} · 评论 {stats['comment']} · "
+            f"收藏 {stats['collect']} · 分享 {stats['share']} · "
+            f"时长 {format_duration(stats.get('duration', 0))}")
 
 
 def append_stats_record(out_dir: Path, stats: dict, title: str, author: str, video_id: str) -> None:
@@ -513,6 +525,7 @@ def append_stats_record(out_dir: Path, stats: dict, title: str, author: str, vid
         "comment": stats["comment"],
         "collect": stats["collect"],
         "share": stats["share"],
+        "duration_sec": stats.get("duration", 0),
         "fetched_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
     with open(out_dir / "video_stats.jsonl", "a", encoding="utf-8") as fh:

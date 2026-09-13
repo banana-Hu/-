@@ -208,20 +208,22 @@ class StatsTest(unittest.TestCase):
     def test_extract_stats_from_detail(self):
         detail = {"statistics": {"digg_count": 54049, "comment_count": 2905,
                                  "collect_count": 11306, "share_count": 43135,
-                                 "play_count": 0}}
+                                 "play_count": 0},
+                  "video": {"duration": 281915}}
         stats = douyin_transcript.extract_stats(detail)
         self.assertEqual(stats, {"digg": 54049, "comment": 2905,
-                                 "collect": 11306, "share": 43135})
+                                 "collect": 11306, "share": 43135,
+                                 "duration": 282})
 
     def test_extract_stats_missing_is_zero(self):
-        self.assertEqual(douyin_transcript.extract_stats({}),
-                         {"digg": 0, "comment": 0, "collect": 0, "share": 0})
-        self.assertEqual(douyin_transcript.extract_stats({"statistics": None}),
-                         {"digg": 0, "comment": 0, "collect": 0, "share": 0})
+        empty = {"digg": 0, "comment": 0, "collect": 0, "share": 0, "duration": 0}
+        self.assertEqual(douyin_transcript.extract_stats({}), empty)
+        self.assertEqual(douyin_transcript.extract_stats({"statistics": None}), empty)
 
     def test_stats_line_format(self):
-        line = douyin_transcript.stats_line({"digg": 1, "comment": 2, "collect": 3, "share": 4})
-        self.assertEqual(line, "- 互动：点赞 1 · 评论 2 · 收藏 3 · 分享 4")
+        line = douyin_transcript.stats_line({"digg": 1, "comment": 2, "collect": 3,
+                                             "share": 4, "duration": 282})
+        self.assertEqual(line, "- 互动：点赞 1 · 评论 2 · 收藏 3 · 分享 4 · 时长 4分42秒")
 
     def test_write_outputs_appends_stats_record(self):
         import argparse, tempfile
@@ -230,13 +232,14 @@ class StatsTest(unittest.TestCase):
             args = argparse.Namespace(with_meta=True, srt=False)
             txt = Path(tmp) / "视频.txt"
             segments = [(0.0, 1.0, "你好")]
-            stats = {"digg": 10, "comment": 20, "collect": 30, "share": 40}
+            stats = {"digg": 10, "comment": 20, "collect": 30, "share": 40, "duration": 95}
             douyin_transcript._write_outputs(
                 txt, args, segments, "标题", "作者", "123", "https://x", stats)
             content = txt.read_text(encoding="utf-8")
-            self.assertIn("- 互动：点赞 10 · 评论 20 · 收藏 30 · 分享 40", content)
+            self.assertIn("- 互动：点赞 10 · 评论 20 · 收藏 30 · 分享 40 · 时长 1分35秒", content)
             record = json.loads((Path(tmp) / "video_stats.jsonl").read_text(encoding="utf-8"))
             self.assertEqual(record["digg"], 10)
+            self.assertEqual(record["duration_sec"], 95)
             self.assertEqual(record["video_id"], "123")
             self.assertIn("fetched_at", record)
 
