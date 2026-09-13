@@ -31,7 +31,7 @@ python tools/douyin_transcript/douyin_transcript.py "<链接>" --srt --with-meta
 | （不带链接运行） | 自动读取剪贴板中的链接 |
 | `-o, --output` | 输出目录 |
 | `--srt` | 同时输出带时间轴的 SRT 文件 |
-| `--with-meta` | TXT 顶部附加标题、作者、视频链接、提取时间 |
+| `--with-meta` | TXT 顶部附加标题、作者、互动数据（点赞/评论/收藏/分享）、视频链接、提取时间；互动数据同时按视频留痕到 `output/video_stats.jsonl` |
 | `--model` | tiny / base / small（默认）/ medium / large-v3，或本地模型目录 |
 | `--language` | 口播语言，默认 zh，`auto` 为自动检测 |
 | `--force-asr` | 跳过平台字幕，强制本地转写 |

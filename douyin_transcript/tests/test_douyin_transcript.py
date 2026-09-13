@@ -1,11 +1,12 @@
 """douyin_transcript 纯函数部分的单元测试（不涉及网络与模型）。"""
 
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
 
-TOOL_PATH = Path(__file__).resolve().parents[1] / "douyin_transcript.py"
+TOOL_PATH = Path(__file__).resolve().parents[1] / "tools" / "douyin_transcript" / "douyin_transcript.py"
 spec = importlib.util.spec_from_file_location("douyin_transcript", TOOL_PATH)
 douyin_transcript = importlib.util.module_from_spec(spec)
 sys.modules["douyin_transcript"] = douyin_transcript
@@ -199,6 +200,56 @@ class NotionPushTest(unittest.TestCase):
                 session, self._args(), title="x", author="", video_id="1",
                 paragraphs=["p"])
         self.assertIn("404", str(ctx.exception))
+
+
+class StatsTest(unittest.TestCase):
+    """互动数据提取与记录。"""
+
+    def test_extract_stats_from_detail(self):
+        detail = {"statistics": {"digg_count": 54049, "comment_count": 2905,
+                                 "collect_count": 11306, "share_count": 43135,
+                                 "play_count": 0}}
+        stats = douyin_transcript.extract_stats(detail)
+        self.assertEqual(stats, {"digg": 54049, "comment": 2905,
+                                 "collect": 11306, "share": 43135})
+
+    def test_extract_stats_missing_is_zero(self):
+        self.assertEqual(douyin_transcript.extract_stats({}),
+                         {"digg": 0, "comment": 0, "collect": 0, "share": 0})
+        self.assertEqual(douyin_transcript.extract_stats({"statistics": None}),
+                         {"digg": 0, "comment": 0, "collect": 0, "share": 0})
+
+    def test_stats_line_format(self):
+        line = douyin_transcript.stats_line({"digg": 1, "comment": 2, "collect": 3, "share": 4})
+        self.assertEqual(line, "- 互动：点赞 1 · 评论 2 · 收藏 3 · 分享 4")
+
+    def test_write_outputs_appends_stats_record(self):
+        import argparse, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(with_meta=True, srt=False)
+            txt = Path(tmp) / "视频.txt"
+            segments = [(0.0, 1.0, "你好")]
+            stats = {"digg": 10, "comment": 20, "collect": 30, "share": 40}
+            douyin_transcript._write_outputs(
+                txt, args, segments, "标题", "作者", "123", "https://x", stats)
+            content = txt.read_text(encoding="utf-8")
+            self.assertIn("- 互动：点赞 10 · 评论 20 · 收藏 30 · 分享 40", content)
+            record = json.loads((Path(tmp) / "video_stats.jsonl").read_text(encoding="utf-8"))
+            self.assertEqual(record["digg"], 10)
+            self.assertEqual(record["video_id"], "123")
+            self.assertIn("fetched_at", record)
+
+    def test_write_outputs_without_stats_no_record(self):
+        import argparse, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(with_meta=False, srt=False)
+            txt = Path(tmp) / "视频.txt"
+            douyin_transcript._write_outputs(
+                txt, args, [(0.0, 1.0, "你好")], "标题", "", "123", "https://x", None)
+            self.assertFalse((Path(tmp) / "video_stats.jsonl").exists())
+            self.assertNotIn("互动", txt.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -438,7 +438,7 @@ def notion_text_blocks(paragraphs: list[str]) -> list[dict]:
     return blocks
 
 
-def push_to_notion(session, args, title, author, video_id, paragraphs) -> str:
+def push_to_notion(session, args, title, author, video_id, paragraphs, stats=None) -> str:
     """创建 Notion 子页面，返回页面 URL。"""
     token, parent = load_notion_config(args)
     page_id = parse_notion_page_id(parent)
@@ -449,6 +449,7 @@ def push_to_notion(session, args, title, author, video_id, paragraphs) -> str:
     }
     meta_lines = [
         f"作者：{author}" if author else None,
+        stats_line(stats) if stats else None,
         f"来源：https://www.douyin.com/video/{video_id}",
         f"提取时间：{time.strftime('%Y-%m-%d %H:%M')}",
     ]
@@ -480,6 +481,44 @@ def push_to_notion(session, args, title, author, video_id, paragraphs) -> str:
     return page_url
 
 
+# ---------------------------------------------------------------- 互动数据
+
+def extract_stats(detail: dict) -> dict:
+    """从 aweme_detail 提取互动数据；字段缺失时按 0 处理。"""
+    raw = detail.get("statistics") if isinstance(detail, dict) else None
+    raw = raw if isinstance(raw, dict) else {}
+    def count(key: str) -> int:
+        value = raw.get(key, 0)
+        return value if isinstance(value, (int, float)) else 0
+    return {
+        "digg": int(count("digg_count")),
+        "comment": int(count("comment_count")),
+        "collect": int(count("collect_count")),
+        "share": int(count("share_count")),
+    }
+
+
+def stats_line(stats: dict) -> str:
+    return f"- 互动：点赞 {stats['digg']} · 评论 {stats['comment']} · 收藏 {stats['collect']} · 分享 {stats['share']}"
+
+
+def append_stats_record(out_dir: Path, stats: dict, title: str, author: str, video_id: str) -> None:
+    """把本条视频的互动数据追加到 video_stats.jsonl（按视频留痕，便于后续对比）。"""
+    record = {
+        "video_id": video_id,
+        "title": title[:100],
+        "author": author,
+        "url": f"https://www.douyin.com/video/{video_id}",
+        "digg": stats["digg"],
+        "comment": stats["comment"],
+        "collect": stats["collect"],
+        "share": stats["share"],
+        "fetched_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    with open(out_dir / "video_stats.jsonl", "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 # ---------------------------------------------------------------- 主流程
 
 def process(url_or_text: str, args: argparse.Namespace) -> Path:
@@ -493,6 +532,8 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
     author = (detail.get("author") or {}).get("nickname", "")
     duration_ms = video.get("duration") or detail.get("duration") or 0
     print(f"[解析] {title[:50]}  |  作者：{author}  |  时长：{duration_ms / 1000:.0f} 秒", file=sys.stderr)
+    stats = extract_stats(detail)
+    print(f"[数据] {stats_line(stats).removeprefix('- 互动：')}", file=sys.stderr)
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -501,7 +542,7 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
     txt_path = out_dir / f"{base_name}.txt"
 
     def finish(segments):
-        _write_outputs(txt_path, args, segments, title, author, video_id, url_or_text)
+        _write_outputs(txt_path, args, segments, title, author, video_id, url_or_text, stats)
         if args.segment:
             try:
                 import segment_transcript  # 与本文件同目录
@@ -516,7 +557,7 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
             paragraphs = [p.strip() for p in final_text.split("\n\n") if p.strip()]
             page_url = push_to_notion(
                 session, args, title=title, author=author, video_id=video_id,
-                paragraphs=paragraphs,
+                paragraphs=paragraphs, stats=stats,
             )
             print(f"[Notion] 已写入笔记：{page_url}", file=sys.stderr)
         if args.classify:
@@ -575,17 +616,20 @@ def process(url_or_text: str, args: argparse.Namespace) -> Path:
     return txt_path
 
 
-def _write_outputs(txt_path: Path, args, segments, title, author, video_id, source_url) -> None:
+def _write_outputs(txt_path: Path, args, segments, title, author, video_id, source_url, stats=None) -> None:
     paragraphs = merge_paragraphs(segments)
     header = []
     if args.with_meta:
         header = [
             f"# {title}",
             f"- 作者：{author}" if author else None,
+            stats_line(stats) if stats else None,
             f"- 视频：https://www.douyin.com/video/{video_id}",
             f"- 提取时间：{time.strftime('%Y-%m-%d %H:%M')}",
         ]
     txt_path.write_text("\n".join([h for h in header if h is not None]) + "\n\n" + paragraphs + "\n", encoding="utf-8")
+    if stats:
+        append_stats_record(txt_path.parent, stats, title, author, video_id)
     if args.srt:
         srt_path = txt_path.with_suffix(".srt")
         srt_path.write_text(format_srt(segments), encoding="utf-8")
